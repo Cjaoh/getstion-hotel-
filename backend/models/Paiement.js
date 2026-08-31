@@ -1,0 +1,32 @@
+const mongoose = require('mongoose');
+
+const paiementSchema = new mongoose.Schema(
+  {
+    reservation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Reservation',
+      required: true,
+    },
+    montant: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    modePaiement: {
+      type: String,
+      enum: ['Espèces', 'Carte', 'En ligne'],
+      required: true,
+    },
+    statut: {
+      type: String,
+      enum: ['En attente', 'Payé'],
+      default: 'En attente',
+    },
+    datePaiement: {
+      type: Date,
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model('Paiement', paiementSchema);
