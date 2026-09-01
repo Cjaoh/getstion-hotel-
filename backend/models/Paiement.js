@@ -14,13 +14,17 @@ const paiementSchema = new mongoose.Schema(
     },
     modePaiement: {
       type: String,
-      enum: ['Espèces', 'Carte', 'En ligne'],
+      enum: ['Espèces', 'Carte', 'En ligne', 'Virement'],
       required: true,
     },
     statut: {
       type: String,
-      enum: ['En attente', 'Payé'],
+      enum: ['En attente', 'Payé', 'Remboursé'],
       default: 'En attente',
+    },
+    encaissePar: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
     },
     datePaiement: {
       type: Date,

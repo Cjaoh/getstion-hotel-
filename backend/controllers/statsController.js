@@ -18,7 +18,10 @@ exports.getStatsMensuelles = async (req, res) => {
 
     // Réservations actives qui chevauchent le mois
     const reservations = await Reservation.find({
-      statut: { $in: ['Confirmée', 'En cours', 'Terminée'] },
+      $or: [
+        { statutReservation: { $in: ['confirmee', 'check_in_fait', 'check_out_fait'] } },
+        { statut: { $in: ['Confirmée', 'En cours', 'Terminée'] } },
+      ],
       dateArrivee: { $lte: finMois },
       dateDepart: { $gte: debutMois },
     });
@@ -64,9 +67,23 @@ exports.getStatsMensuelles = async (req, res) => {
 exports.getRepartitionStatutChambres = async (req, res) => {
   try {
     const repartition = await Chambre.aggregate([
-      { $group: { _id: '$statut', total: { $sum: 1 } } },
+      { $group: { _id: '$statutActuel', total: { $sum: 1 } } },
     ]);
-    res.status(200).json({ success: true, data: repartition });
+
+    // Formatage convivial des noms de statuts
+    const map = {
+      disponible: 'Disponible',
+      occupe: 'Occupée',
+      en_nettoyage: 'En cours de nettoyage',
+      maintenance: 'Hors service / Maintenance',
+    };
+
+    const formatted = repartition.map((item) => ({
+      _id: map[item._id] || item._id,
+      total: item.total,
+    }));
+
+    res.status(200).json({ success: true, data: formatted });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -20,6 +20,7 @@ app.use('/api/paiements', require('./routes/paiementRoutes'));
 app.use('/api/clients', require('./routes/clientRoutes'));
 app.use('/api/stats', require('./routes/statsRoutes'));
 app.use('/api/disponibilite', require('./routes/disponibiliteRoutes'));
+app.use('/api/verrous', require('./routes/verrouRoutes'));
 
 // Route de test
 app.get('/', (req, res) => {
