@@ -5,7 +5,37 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// Ajoute automatiquement le token JWT sur chaque requête sortante
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Si le token est invalide/expiré (401), on nettoie et on renvoie vers le login.
+// On utilise window.location plutôt que le router ici pour éviter un import
+// circulaire (router -> stores/auth -> services/api).
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
+
+// Authentification
+export const authService = {
+  login: (email, motDePasse) => api.post('/auth/login', { email, motDePasse }),
+  me: () => api.get('/auth/me'),
+};
 
 // Chambres
 export const chambreService = {

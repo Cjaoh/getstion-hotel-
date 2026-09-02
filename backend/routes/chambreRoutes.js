@@ -10,10 +10,17 @@ const {
 } = require('../controllers/chambreController');
 const { protect, autorize } = require('../middleware/authMiddleware');
 
-router.use(protect); // toutes les routes chambres nécessitent d'être connecté
+router.use(protect);
 
-router.route('/').get(getChambres).post(createChambre);
-router.route('/:id').get(getChambre).put(updateChambre).delete(autorize('admin'), deleteChambre);
-router.route('/:id/statut').patch(updateStatutChambre);
+// Lecture : admin ET receptionniste (l'accueil doit voir les chambres et leur disponibilité)
+router.get('/', getChambres);
+router.get('/:id', getChambre);
+
+// Écriture (créer/modifier/changer le statut/supprimer une chambre) : admin uniquement.
+// L'accueil ne gère pas le catalogue de chambres, seulement les réservations.
+router.post('/', autorize('admin'), createChambre);
+router.put('/:id', autorize('admin'), updateChambre);
+router.patch('/:id/statut', autorize('admin'), updateStatutChambre);
+router.delete('/:id', autorize('admin'), deleteChambre);
 
 module.exports = router;
