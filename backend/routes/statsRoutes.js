@@ -5,6 +5,9 @@ const {
   getRepartitionStatutChambres,
   getEvolutionCA,
 } = require('../controllers/statsController');
+const { protect, autorize } = require('../middleware/authMiddleware');
+
+router.use(protect, autorize('admin')); // données sensibles (revenus) réservées aux admins
 
 router.get('/mensuel', getStatsMensuelles);
 router.get('/chambres-statut', getRepartitionStatutChambres);

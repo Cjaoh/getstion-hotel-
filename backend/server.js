@@ -14,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/chambres', require('./routes/chambreRoutes'));
 app.use('/api/reservations', require('./routes/reservationRoutes'));
 app.use('/api/paiements', require('./routes/paiementRoutes'));

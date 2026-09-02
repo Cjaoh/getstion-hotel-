@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Client = require('../models/Client');
+const { protect, autorize } = require('../middleware/authMiddleware');
+
+router.use(protect);
 
 // GET /api/clients
 router.get('/', async (req, res) => {
@@ -47,8 +50,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/clients/:id
-router.delete('/:id', async (req, res) => {
+// DELETE /api/clients/:id — admin uniquement
+router.delete('/:id', autorize('admin'), async (req, res) => {
   try {
     const client = await Client.findByIdAndDelete(req.params.id);
     if (!client) return res.status(404).json({ success: false, message: 'Client non trouvé' });
