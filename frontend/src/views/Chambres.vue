@@ -66,6 +66,26 @@
       Vue en lecture seule — la gestion des chambres est réservée aux administrateurs.
     </p>
 
+    <!-- Onglets par catégorie -->
+    <div class="tabs">
+      <button
+        class="tab"
+        :class="{ active: categorieActive === 'Toutes' }"
+        @click="categorieActive = 'Toutes'"
+      >
+        Toutes ({{ store.chambres.length }})
+      </button>
+      <button
+        v-for="cat in CATEGORIES"
+        :key="cat"
+        class="tab"
+        :class="{ active: categorieActive === cat }"
+        @click="categorieActive = cat"
+      >
+        {{ cat }} ({{ compteParCategorie[cat] || 0 }})
+      </button>
+    </div>
+
     <div class="card" style="margin-top: 1rem">
       <table>
         <thead>
@@ -81,7 +101,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="chambre in store.chambres" :key="chambre._id">
+          <tr v-for="chambre in chambresFiltrees" :key="chambre._id">
             <td>{{ chambre.numero }}</td>
             <td>{{ chambre.typeLit }}</td>
             <td>{{ chambre.gamme }}</td>
@@ -113,13 +133,13 @@
           </tr>
         </tbody>
       </table>
-      <p v-if="!store.chambres.length && !store.loading">Aucune chambre enregistrée.</p>
+      <p v-if="!chambresFiltrees.length && !store.loading">Aucune chambre dans cette catégorie.</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue';
+import { reactive, ref, computed, onMounted } from 'vue';
 import { useChambresStore } from '../stores/chambres';
 import { useAuthStore } from '../stores/auth';
 
@@ -128,7 +148,9 @@ const authStore = useAuthStore();
 const afficherFormulaire = ref(false);
 const chambreEnEdition = ref(null);
 const erreur = ref('');
+const categorieActive = ref('Toutes');
 
+const CATEGORIES = ['Simple', 'Double', 'Twin', 'Triple', 'Quadruple', 'Queen', 'King'];
 const CAPACITES = { Simple: 1, Double: 2, Twin: 2, Queen: 2, King: 2, Triple: 3, Quadruple: 4 };
 
 const form = reactive({
@@ -144,6 +166,19 @@ const form = reactive({
 });
 
 onMounted(() => store.fetchChambres());
+
+const compteParCategorie = computed(() => {
+  const compte = {};
+  for (const c of store.chambres) {
+    compte[c.typeLit] = (compte[c.typeLit] || 0) + 1;
+  }
+  return compte;
+});
+
+const chambresFiltrees = computed(() => {
+  if (categorieActive.value === 'Toutes') return store.chambres;
+  return store.chambres.filter((c) => c.typeLit === categorieActive.value);
+});
 
 function ajusterCapacite() {
   form.capaciteMax = CAPACITES[form.typeLit] || 2;
@@ -164,8 +199,8 @@ function ouvrirFormulaire(chambre = null) {
     form.description = chambre.description || '';
   } else {
     form.numero = '';
-    form.typeLit = 'Double';
-    form.capaciteMax = 2;
+    form.typeLit = categorieActive.value !== 'Toutes' ? categorieActive.value : 'Double';
+    form.capaciteMax = CAPACITES[form.typeLit] || 2;
     form.gamme = 'Standard';
     form.categorieSpeciale = 'Aucune';
     form.vue = 'Aucune';
@@ -259,6 +294,27 @@ textarea {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   font-size: 0.8rem;
+  font-weight: 600;
+}
+.tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+.tab {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.tab.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
   font-weight: 600;
 }
 </style>
