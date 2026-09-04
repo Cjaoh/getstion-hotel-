@@ -1,11 +1,22 @@
+const mongoose = require('mongoose');
 const Reservation = require('../models/Reservation');
 const Chambre = require('../models/Chambre');
 const VerrouTemporaire = require('../models/VerrouTemporaire');
 
 // ── Logique de disponibilité à 3 niveaux ──────────────────────
-async function chambreEstDisponible(chambreId, dateArrivee, dateDepart, reservationIdAExclure = null) {
+// Le paramètre `session` permet d'inclure ces lectures dans une transaction
+// en cours, pour garantir qu'aucune écriture concurrente ne s'intercale
+// entre la vérification et l'écriture qui suit.
+async function chambreEstDisponible(
+  chambreId,
+  dateArrivee,
+  dateDepart,
+  reservationIdAExclure = null,
+  verrouIdAExclure = null,
+  session = null
+) {
   // 1. Vérification de la chambre (état physique & dates hors service)
-  const chambre = await Chambre.findById(chambreId);
+  const chambre = await Chambre.findById(chambreId).session(session);
   if (!chambre || chambre.statutActuel === 'maintenance') return false;
 
   const conflitHorsService =
@@ -25,15 +36,19 @@ async function chambreEstDisponible(chambreId, dateArrivee, dateDepart, reservat
   if (reservationIdAExclure) {
     filtreReservation._id = { $ne: reservationIdAExclure };
   }
-  const conflitReservation = await Reservation.findOne(filtreReservation);
+  const conflitReservation = await Reservation.findOne(filtreReservation).session(session);
   if (conflitReservation) return false;
 
-  // 3. Conflit avec un verrou temporaire actif
-  const conflitVerrou = await VerrouTemporaire.findOne({
+  // 3. Conflit avec un verrou temporaire actif (en excluant, le cas échéant, le verrou du demandeur)
+  const filtreVerrou = {
     chambre: chambreId,
     dateArrivee: { $lt: dateDepart },
     dateDepart: { $gt: dateArrivee },
-  });
+  };
+  if (verrouIdAExclure) {
+    filtreVerrou._id = { $ne: verrouIdAExclure };
+  }
+  const conflitVerrou = await VerrouTemporaire.findOne(filtreVerrou).session(session);
   if (conflitVerrou) return false;
 
   return true;
@@ -110,157 +125,218 @@ exports.getReservation = async (req, res) => {
 // @desc    Créer une réservation (avec figeage du prix et contrôle de disponibilité)
 // @route   POST /api/reservations
 exports.createReservation = async (req, res) => {
-  try {
-    const {
-      client,
-      chambre,
-      dateArrivee,
-      dateDepart,
-      nombreAdultes,
-      nombreEnfants,
-      nomsOccupants,
-      remise,
-      devise,
-      preferences,
-      notesInternes,
-      statutReservation,
-      statut,
-      creePar,
-    } = req.body;
+  const {
+    client,
+    chambre,
+    dateArrivee,
+    dateDepart,
+    nombreAdultes,
+    nombreEnfants,
+    nomsOccupants,
+    remise,
+    devise,
+    preferences,
+    notesInternes,
+    statutReservation,
+    statut,
+    creePar,
+    verrouId,
+  } = req.body;
 
-    const debut = new Date(dateArrivee);
-    const fin = new Date(dateDepart);
+  const debut = new Date(dateArrivee);
+  const fin = new Date(dateDepart);
 
-    if (fin <= debut) {
-      return res.status(400).json({
-        success: false,
-        message: "La date de départ doit être postérieure à la date d'arrivée",
-      });
-    }
-
-    const chambreExiste = await Chambre.findById(chambre);
-    if (!chambreExiste) {
-      return res.status(404).json({ success: false, message: 'Chambre non trouvée' });
-    }
-    if (chambreExiste.statutActuel === 'maintenance') {
-      return res.status(400).json({ success: false, message: 'Cette chambre est en maintenance / hors service' });
-    }
-
-    const disponible = await chambreEstDisponible(chambre, debut, fin);
-    if (!disponible) {
-      return res.status(409).json({
-        success: false,
-        message: 'Cette chambre n\'est pas disponible sur cette période (réservée, bloquée ou hors service)',
-      });
-    }
-
-    // Calcul des durées et figeage du prix au moment de la réservation
-    const nombreNuitsFacture = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
-    const prixNuiteeAuMoment = chambreExiste.prixNuitee;
-    const montantRemise = Number(remise) || 0;
-    const montantTotal = Math.max(0, prixNuiteeAuMoment * nombreNuitsFacture - montantRemise);
-
-    const statutFinal = normaliserStatutReservation(statutReservation || statut) || 'confirmee';
-
-    const reservation = await Reservation.create({
-      client,
-      chambre,
-      creePar: creePar || req.user?._id,
-      dateArrivee: debut,
-      dateDepart: fin,
-      nombreAdultes: nombreAdultes || 1,
-      nombreEnfants: nombreEnfants || 0,
-      nomsOccupants: nomsOccupants || [],
-      prixNuiteeAuMoment,
-      nombreNuitsFacture,
-      remise: montantRemise,
-      montantTotal,
-      devise: devise || 'MGA',
-      statutReservation: statutFinal,
-      preferences: preferences || '',
-      notesInternes: notesInternes || '',
+  if (fin <= debut) {
+    return res.status(400).json({
+      success: false,
+      message: "La date de départ doit être postérieure à la date d'arrivée",
     });
-
-    // Synchronisation du statut physique de la chambre si check-in immédiat
-    if (statutFinal === 'check_in_fait') {
-      await Chambre.findByIdAndUpdate(chambre, { statutActuel: 'occupe' });
-    }
-
-    const reservationPeuplee = await reservation.populate(['client', 'chambre']);
-    res.status(201).json({ success: true, data: reservationPeuplee });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
   }
+
+  const session = await mongoose.startSession();
+  let reservationCreee;
+  let conflitDetecte = false;
+  let chambreIntrouvable = false;
+  let chambreEnMaintenance = false;
+
+  try {
+    await session.withTransaction(async () => {
+      const chambreExiste = await Chambre.findById(chambre).session(session);
+      if (!chambreExiste) {
+        chambreIntrouvable = true;
+        throw new Error('ABORT_CONTROLE');
+      }
+      if (chambreExiste.statutActuel === 'maintenance') {
+        chambreEnMaintenance = true;
+        throw new Error('ABORT_CONTROLE');
+      }
+
+      // Vérification + écriture dans la MÊME transaction : aucune requête concurrente
+      // ne peut s'intercaler entre ce contrôle et la création de la réservation.
+      const disponible = await chambreEstDisponible(
+        chambre,
+        debut,
+        fin,
+        null,
+        verrouId || null,
+        session
+      );
+      if (!disponible) {
+        conflitDetecte = true;
+        throw new Error('ABORT_CONTROLE');
+      }
+
+      const nombreNuitsFacture = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
+      const prixNuiteeAuMoment = chambreExiste.prixNuitee;
+      const montantRemise = Number(remise) || 0;
+      const montantTotal = Math.max(0, prixNuiteeAuMoment * nombreNuitsFacture - montantRemise);
+      const statutFinal = normaliserStatutReservation(statutReservation || statut) || 'confirmee';
+
+      const resultats = await Reservation.create(
+        [
+          {
+            client,
+            chambre,
+            creePar: creePar || req.user?._id,
+            dateArrivee: debut,
+            dateDepart: fin,
+            nombreAdultes: nombreAdultes || 1,
+            nombreEnfants: nombreEnfants || 0,
+            nomsOccupants: nomsOccupants || [],
+            prixNuiteeAuMoment,
+            nombreNuitsFacture,
+            remise: montantRemise,
+            montantTotal,
+            devise: devise || 'MGA',
+            statutReservation: statutFinal,
+            preferences: preferences || '',
+            notesInternes: notesInternes || '',
+          },
+        ],
+        { session }
+      );
+      reservationCreee = resultats[0];
+
+      // Le verrou temporaire n'a plus lieu d'être : la réservation le remplace définitivement
+      if (verrouId) {
+        await VerrouTemporaire.findByIdAndDelete(verrouId).session(session);
+      }
+
+      // Synchronisation du statut physique de la chambre si check-in immédiat
+      if (statutFinal === 'check_in_fait') {
+        await Chambre.findByIdAndUpdate(chambre, { statutActuel: 'occupe' }).session(session);
+      }
+    });
+  } catch (error) {
+    if (error.message !== 'ABORT_CONTROLE') {
+      await session.endSession();
+      return res.status(400).json({ success: false, message: error.message });
+    }
+  }
+  await session.endSession();
+
+  if (chambreIntrouvable) {
+    return res.status(404).json({ success: false, message: 'Chambre non trouvée' });
+  }
+  if (chambreEnMaintenance) {
+    return res.status(400).json({ success: false, message: 'Cette chambre est en maintenance / hors service' });
+  }
+  if (conflitDetecte) {
+    return res.status(409).json({
+      success: false,
+      message: "Cette chambre n'est pas disponible sur cette période (réservée, bloquée ou hors service)",
+    });
+  }
+
+  const reservationPeuplee = await reservationCreee.populate(['client', 'chambre']);
+  res.status(201).json({ success: true, data: reservationPeuplee });
 };
 
 // @desc    Modifier une réservation (dates, chambre, statut) avec re-contrôle
 // @route   PUT /api/reservations/:id
 exports.updateReservation = async (req, res) => {
+  const session = await mongoose.startSession();
+  let reservationModifiee;
+  let reservationIntrouvable = false;
+  let conflitDetecte = false;
+
   try {
-    const reservation = await Reservation.findById(req.params.id);
-    if (!reservation) {
-      return res.status(404).json({ success: false, message: 'Réservation non trouvée' });
-    }
-
-    const chambreId = req.body.chambre || reservation.chambre;
-    const debut = req.body.dateArrivee ? new Date(req.body.dateArrivee) : reservation.dateArrivee;
-    const fin = req.body.dateDepart ? new Date(req.body.dateDepart) : reservation.dateDepart;
-
-    if (fin <= debut) {
-      return res.status(400).json({
-        success: false,
-        message: "La date de départ doit être postérieure à la date d'arrivée",
-      });
-    }
-
-    // Vérification de disponibilité si dates ou chambre ont changé
-    const disponible = await chambreEstDisponible(chambreId, debut, fin, reservation._id);
-    if (!disponible) {
-      return res.status(409).json({
-        success: false,
-        message: 'Cette chambre est déjà réservée sur cette période',
-      });
-    }
-
-    reservation.chambre = chambreId;
-    reservation.dateArrivee = debut;
-    reservation.dateDepart = fin;
-
-    if (req.body.nombreAdultes !== undefined) reservation.nombreAdultes = req.body.nombreAdultes;
-    if (req.body.nombreEnfants !== undefined) reservation.nombreEnfants = req.body.nombreEnfants;
-    if (req.body.nomsOccupants !== undefined) reservation.nomsOccupants = req.body.nomsOccupants;
-    if (req.body.remise !== undefined) reservation.remise = req.body.remise;
-    if (req.body.preferences !== undefined) reservation.preferences = req.body.preferences;
-    if (req.body.notesInternes !== undefined) reservation.notesInternes = req.body.notesInternes;
-
-    // Mise à jour de la facturation basée sur la durée et le tarif figé
-    reservation.nombreNuitsFacture = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
-    reservation.montantTotal = Math.max(
-      0,
-      reservation.prixNuiteeAuMoment * reservation.nombreNuitsFacture - (reservation.remise || 0)
-    );
-
-    const nouveauStatut = normaliserStatutReservation(req.body.statutReservation || req.body.statut);
-    if (nouveauStatut) {
-      reservation.statutReservation = nouveauStatut;
-
-      if (nouveauStatut === 'check_in_fait') {
-        if (!reservation.dateCheckInReel) reservation.dateCheckInReel = new Date();
-        await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'occupe' });
-      } else if (nouveauStatut === 'check_out_fait') {
-        if (!reservation.dateCheckOutReel) reservation.dateCheckOutReel = new Date();
-        await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'disponible' });
-      } else if (nouveauStatut === 'annulee') {
-        await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'disponible' });
+    await session.withTransaction(async () => {
+      const reservation = await Reservation.findById(req.params.id).session(session);
+      if (!reservation) {
+        reservationIntrouvable = true;
+        throw new Error('ABORT_CONTROLE');
       }
-    }
 
-    await reservation.save();
-    const reservationPeuplee = await reservation.populate(['client', 'chambre']);
-    res.status(200).json({ success: true, data: reservationPeuplee });
+      const chambreId = req.body.chambre || reservation.chambre;
+      const debut = req.body.dateArrivee ? new Date(req.body.dateArrivee) : reservation.dateArrivee;
+      const fin = req.body.dateDepart ? new Date(req.body.dateDepart) : reservation.dateDepart;
+
+      if (fin <= debut) {
+        throw new Error("La date de départ doit être postérieure à la date d'arrivée");
+      }
+
+      const disponible = await chambreEstDisponible(chambreId, debut, fin, reservation._id, null, session);
+      if (!disponible) {
+        conflitDetecte = true;
+        throw new Error('ABORT_CONTROLE');
+      }
+
+      reservation.chambre = chambreId;
+      reservation.dateArrivee = debut;
+      reservation.dateDepart = fin;
+
+      if (req.body.nombreAdultes !== undefined) reservation.nombreAdultes = req.body.nombreAdultes;
+      if (req.body.nombreEnfants !== undefined) reservation.nombreEnfants = req.body.nombreEnfants;
+      if (req.body.nomsOccupants !== undefined) reservation.nomsOccupants = req.body.nomsOccupants;
+      if (req.body.remise !== undefined) reservation.remise = req.body.remise;
+      if (req.body.preferences !== undefined) reservation.preferences = req.body.preferences;
+      if (req.body.notesInternes !== undefined) reservation.notesInternes = req.body.notesInternes;
+
+      reservation.nombreNuitsFacture = Math.ceil((fin - debut) / (1000 * 60 * 60 * 24));
+      reservation.montantTotal = Math.max(
+        0,
+        reservation.prixNuiteeAuMoment * reservation.nombreNuitsFacture - (reservation.remise || 0)
+      );
+
+      const nouveauStatut = normaliserStatutReservation(req.body.statutReservation || req.body.statut);
+      if (nouveauStatut) {
+        reservation.statutReservation = nouveauStatut;
+
+        if (nouveauStatut === 'check_in_fait') {
+          if (!reservation.dateCheckInReel) reservation.dateCheckInReel = new Date();
+          await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'occupe' }).session(session);
+        } else if (nouveauStatut === 'check_out_fait') {
+          if (!reservation.dateCheckOutReel) reservation.dateCheckOutReel = new Date();
+          await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'disponible' }).session(session);
+        } else if (nouveauStatut === 'annulee') {
+          await Chambre.findByIdAndUpdate(chambreId, { statutActuel: 'disponible' }).session(session);
+        }
+      }
+
+      await reservation.save({ session });
+      reservationModifiee = reservation;
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    if (error.message !== 'ABORT_CONTROLE') {
+      await session.endSession();
+      return res.status(400).json({ success: false, message: error.message });
+    }
   }
+  await session.endSession();
+
+  if (reservationIntrouvable) {
+    return res.status(404).json({ success: false, message: 'Réservation non trouvée' });
+  }
+  if (conflitDetecte) {
+    return res.status(409).json({
+      success: false,
+      message: 'Cette chambre est déjà réservée sur cette période',
+    });
+  }
+
+  const reservationPeuplee = await reservationModifiee.populate(['client', 'chambre']);
+  res.status(200).json({ success: true, data: reservationPeuplee });
 };
 
 // @desc    Annuler une réservation
