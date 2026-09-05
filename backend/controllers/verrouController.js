@@ -22,8 +22,6 @@ exports.creerVerrou = async (req, res) => {
 
   try {
     await session.withTransaction(async () => {
-      // Vérification + écriture dans la MÊME transaction : deux clients qui posent un
-      // verrou sur la même chambre/période au même instant ne peuvent plus tous les deux réussir.
       const disponible = await chambreEstDisponible(chambre, debut, fin, null, null, session);
       if (!disponible) {
         conflitDetecte = true;
@@ -69,10 +67,24 @@ exports.creerVerrou = async (req, res) => {
 // @route   DELETE /api/verrous/:id
 exports.libererVerrou = async (req, res) => {
   try {
-    const verrou = await VerrouTemporaire.findByIdAndDelete(req.params.id);
+    const verrou = await VerrouTemporaire.findById(req.params.id);
     if (!verrou) {
       return res.status(404).json({ success: false, message: 'Verrou non trouvé' });
     }
+
+    // NOUVEAU : le demandeur doit prouver qu'il est bien celui qui a posé ce verrou,
+    // en fournissant le même sessionId que celui enregistré à la création.
+    // Sans ce contrôle, n'importe qui connaissant l'_id du verrou pourrait libérer
+    // la chambre d'un autre client en cours de réservation.
+    const sessionIdFourni = req.body.sessionId || req.headers['x-session-id'];
+    if (!sessionIdFourni || sessionIdFourni !== verrou.sessionId) {
+      return res.status(403).json({
+        success: false,
+        message: "Non autorisé — ce verrou n'appartient pas à cette session",
+      });
+    }
+
+    await VerrouTemporaire.findByIdAndDelete(req.params.id);
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

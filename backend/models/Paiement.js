@@ -10,7 +10,7 @@ const paiementSchema = new mongoose.Schema(
     montant: {
       type: Number,
       required: true,
-      min: 0,
+      min: [0.01, 'Le montant du paiement doit être supérieur à 0'],
     },
     modePaiement: {
       type: String,
@@ -32,5 +32,8 @@ const paiementSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Filtre fréquent : tous les paiements d'une réservation donnée
+paiementSchema.index({ reservation: 1 });
 
 module.exports = mongoose.model('Paiement', paiementSchema);
