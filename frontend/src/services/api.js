@@ -5,7 +5,6 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Ajoute automatiquement le token JWT sur chaque requête sortante
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -14,9 +13,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Si le token est invalide/expiré (401), on nettoie et on renvoie vers le login.
-// On utilise window.location plutôt que le router ici pour éviter un import
-// circulaire (router -> stores/auth -> services/api).
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -31,13 +27,11 @@ api.interceptors.response.use(
 
 export default api;
 
-// Authentification
 export const authService = {
   login: (email, motDePasse) => api.post('/auth/login', { email, motDePasse }),
   me: () => api.get('/auth/me'),
 };
 
-// Chambres
 export const chambreService = {
   getAll: (params) => api.get('/chambres', { params }),
   getOne: (id) => api.get(`/chambres/${id}`),
@@ -47,17 +41,18 @@ export const chambreService = {
   remove: (id) => api.delete(`/chambres/${id}`),
 };
 
-// Réservations
 export const reservationService = {
   getAll: (params) => api.get('/reservations', { params }),
   getOne: (id) => api.get(`/reservations/${id}`),
   create: (data) => api.post('/reservations', data),
+  creerGroupe: (data) => api.post('/reservations/groupe', data),
+  validerGroupe: (groupeReservationId) =>
+    api.patch(`/reservations/groupe/${groupeReservationId}/valider`), // NOUVEAU
   update: (id, data) => api.put(`/reservations/${id}`, data),
   annuler: (id) => api.patch(`/reservations/${id}/annuler`),
   remove: (id) => api.delete(`/reservations/${id}`),
 };
 
-// Paiements
 export const paiementService = {
   getAll: (params) => api.get('/paiements', { params }),
   create: (data) => api.post('/paiements', data),
@@ -65,7 +60,6 @@ export const paiementService = {
   remove: (id) => api.delete(`/paiements/${id}`),
 };
 
-// Clients
 export const clientService = {
   getAll: () => api.get('/clients'),
   create: (data) => api.post('/clients', data),
@@ -73,14 +67,12 @@ export const clientService = {
   remove: (id) => api.delete(`/clients/${id}`),
 };
 
-// Stats
 export const statsService = {
   getMensuel: (mois, annee) => api.get('/stats/mensuel', { params: { mois, annee } }),
   getRepartitionChambres: () => api.get('/stats/chambres-statut'),
   getEvolutionCA: (mois) => api.get('/stats/ca-evolution', { params: { mois } }),
 };
 
-// Disponibilité
 export const disponibiliteService = {
   get: (dateDebut, dateFin) => api.get('/disponibilite', { params: { dateDebut, dateFin } }),
 };

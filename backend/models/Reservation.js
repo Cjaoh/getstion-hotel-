@@ -14,9 +14,21 @@ const reservationSchema = new mongoose.Schema(
       required: true,
     },
     creePar: {
-      // employé/réceptionniste qui a enregistré la réservation
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
+    },
+
+    // ── NOUVEAU : regroupement de réservations créées en une seule soumission ──
+    groupeReservationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true,
+    },
+    // NOUVEAU : true tant qu'un admin n'a pas validé/réassigné manuellement
+    // l'assignation automatique (cas d'une demande spéciale non vide)
+    enAttenteValidation: {
+      type: Boolean,
+      default: false,
     },
 
     // ── Dates et durées ──────────────────────────────────────────
@@ -38,14 +50,12 @@ const reservationSchema = new mongoose.Schema(
     // ── Occupants ────────────────────────────────────────────────
     nombreAdultes: { type: Number, required: true, min: 1, default: 1 },
     nombreEnfants: { type: Number, min: 0, default: 0 },
-    nomsOccupants: { type: [String], default: [] }, // optionnel, utile en check-in
+    nomsOccupants: { type: [String], default: [] },
 
     // ── Suivi financier (historique figé) ─────────────────────────
-    // On fige le prix ici : si Chambre.prixNuitee change plus tard,
-    // cette réservation garde le prix qui était valable au moment de la résa.
     prixNuiteeAuMoment: { type: Number, required: true, min: 0 },
     nombreNuitsFacture: { type: Number, required: true, min: 1 },
-    remise: { type: Number, default: 0, min: 0 }, // montant fixe
+    remise: { type: Number, default: 0, min: 0 },
     montantTotal: { type: Number, required: true, min: 0 },
     devise: { type: String, default: 'MGA' },
 
@@ -80,19 +90,17 @@ const reservationSchema = new mongoose.Schema(
     motifAnnulation: { type: String, default: '' },
 
     // ── Préférences et notes ─────────────────────────────────────
-    preferences: { type: String, default: '' }, // ex: "étage élevé, loin de l'ascenseur"
-    notesInternes: { type: String, default: '' }, // usage staff uniquement
+    preferences: { type: String, default: '' },
+    notesInternes: { type: String, default: '' },
   },
   { timestamps: true }
 );
 
-// Nombre de nuits (dérivé des dates réelles, distinct de nombreNuitsFacture)
 reservationSchema.virtual('nombreNuits').get(function () {
   const diff = this.dateDepart - this.dateArrivee;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 });
 
-// Virtual pour 'statut' (rétrocompatibilité)
 reservationSchema
   .virtual('statut')
   .get(function () {

@@ -29,4 +29,9 @@ const clientSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// NOUVEAU : le CIN sert de clé d'identification pour retrouver/créer un client
+// à la volée. "sparse" = les clients sans CIN renseigné n'entrent pas en conflit
+// entre eux (seuls les CIN réellement présents doivent être uniques).
+clientSchema.index({ cin: 1 }, { unique: true, sparse: true });
+
 module.exports = mongoose.model('Client', clientSchema);
