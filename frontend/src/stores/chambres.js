@@ -12,6 +12,7 @@ export const useChambresStore = defineStore('chambres', {
       this.loading = true;
       this.error = null;
       try {
+        frontend / src / stores / chambres.js
         const { data } = await chambreService.getAll(params);
         this.chambres = data.data;
       } catch (err) {
