@@ -154,6 +154,21 @@
           <span class="carte-prix">{{ chambre.prixNuitee.toLocaleString('fr-FR') }} Ar<small>/nuit</small></span>
         </div>
 
+        <!-- ── NOUVEAU : détails d'occupation ────────────────────── -->
+        <div v-if="chambre.statutActuel === 'occupe'" class="bloc-occupation">
+          <template v-if="occupationParChambre[chambre._id]">
+            <p class="occupation-client">{{ occupationParChambre[chambre._id].client }}</p>
+            <p class="occupation-dates">
+              {{ formatDate(occupationParChambre[chambre._id].dateArrivee) }}
+              →
+              {{ formatDate(occupationParChambre[chambre._id].dateDepart) }}
+            </p>
+          </template>
+          <p v-else class="occupation-inconnue">
+            Occupée manuellement — aucune réservation active liée
+          </p>
+        </div>
+
         <div class="carte-pied" v-if="authStore.estAdmin">
           <select
             class="select-statut"
@@ -183,9 +198,11 @@
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useChambresStore } from '../stores/chambres';
 import { useAuthStore } from '../stores/auth';
+import { useReservationsStore } from '../stores/reservations';
 
 const store = useChambresStore();
 const authStore = useAuthStore();
+const reservationsStore = useReservationsStore(); // NOUVEAU
 const afficherFormulaire = ref(false);
 const chambreEnEdition = ref(null);
 const erreur = ref('');
@@ -214,7 +231,10 @@ const form = reactive({
   description: '',
 });
 
-onMounted(() => store.fetchChambres());
+onMounted(() => {
+  store.fetchChambres();
+  reservationsStore.fetchReservations(); // NOUVEAU
+});
 
 const compteParCategorie = computed(() => {
   const compte = {};
@@ -235,6 +255,27 @@ const chambresFiltrees = computed(() => {
   }
   return liste;
 });
+
+// NOUVEAU — associe chaque chambre._id à sa réservation active (check-in effectué),
+// c'est le seul statutReservation qui correspond réellement à statutActuel === 'occupe'.
+const occupationParChambre = computed(() => {
+  const map = {};
+  for (const r of reservationsStore.reservations) {
+    if (r.statutReservation !== 'check_in_fait') continue;
+    const chambreId = r.chambre?._id || r.chambre;
+    if (!chambreId) continue;
+    map[chambreId] = {
+      client: [r.client?.nom, r.client?.prenom].filter(Boolean).join(' ') || 'Client inconnu',
+      dateArrivee: r.dateArrivee,
+      dateDepart: r.dateDepart,
+    };
+  }
+  return map;
+});
+
+function formatDate(d) {
+  return new Date(d).toLocaleDateString('fr-FR');
+}
 
 function ajusterCapacite() {
   form.capaciteMax = CAPACITES[form.typeLit] || 2;
@@ -609,6 +650,33 @@ async function supprimer(id) {
   font-weight: 500;
   font-size: 0.7rem;
   color: #9c9788;
+}
+
+/* ── NOUVEAU : bloc occupation ─────────────────────────────── */
+.bloc-occupation {
+  margin-top: 0.6rem;
+  padding: 0.55rem 0.65rem;
+  background: #fbeae2;
+  border-radius: 7px;
+  border-left: 2px solid #b5502f;
+}
+.occupation-client {
+  margin: 0 0 0.15rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #7a3319;
+}
+.occupation-dates {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #a0532f;
+  font-variant-numeric: tabular-nums;
+}
+.occupation-inconnue {
+  margin: 0;
+  font-size: 0.78rem;
+  font-style: italic;
+  color: #a0532f;
 }
 
 .carte-pied {
