@@ -55,7 +55,7 @@ onMounted(async () => {
   margin-bottom: 0.5rem;
 }
 .hint {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 0.9rem;
 }
 ul {

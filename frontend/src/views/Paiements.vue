@@ -242,19 +242,16 @@ onMounted(() => {
   margin-bottom: 0.3rem;
   font-size: 0.9rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--muted);
 }
 .champ input,
 .champ select {
   width: 100%;
-  padding: 0.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
 }
 .aide {
   margin: 0.3rem 0 0;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--muted);
 }
 .form-row {
   display: flex;
@@ -268,7 +265,7 @@ onMounted(() => {
   gap: 0.5rem;
 }
 .erreur {
-  color: #dc2626;
+  color: var(--danger);
   margin-top: 0.5rem;
 }
 .actions-cell {
@@ -281,8 +278,8 @@ onMounted(() => {
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
-  background: #fef3c7;
-  color: #92400e;
+  background: #fdf3d9;
+  color: #8a6a08;
 }
 .badge-solde {
   display: inline-block;
@@ -290,11 +287,11 @@ onMounted(() => {
   border-radius: 999px;
   font-size: 0.8rem;
   font-weight: 600;
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--brand-light);
+  color: #157a4f;
 }
 .hint {
-  color: #6b7280;
+  color: var(--muted);
   font-size: 0.9rem;
   margin-top: 1rem;
 }

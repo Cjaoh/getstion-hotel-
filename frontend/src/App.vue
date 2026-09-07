@@ -1,16 +1,20 @@
 <template>
   <div>
     <nav v-if="authStore.isAuthenticated" class="navbar">
-      <h1>🏨 Gestion Hôtelière</h1>
+      <div class="marque">
+        <span class="marque-nom">Tsara Trace</span>
+        <span class="marque-sous">Gestion hôtelière</span>
+      </div>
       <div class="nav-links">
-        <router-link v-if="authStore.estAdmin" to="/">Dashboard</router-link>
+        <router-link v-if="authStore.estAdmin" to="/">Tableau de bord</router-link>
         <router-link to="/chambres">Chambres</router-link>
         <router-link to="/reservations">Réservations</router-link>
         <router-link to="/calendrier">Calendrier</router-link>
         <router-link to="/paiements">Paiements</router-link>
       </div>
       <div class="nav-user">
-        <span>{{ authStore.user?.nom }} · {{ authStore.estAdmin ? 'Admin' : 'Accueil' }}</span>
+        <span class="nav-user-nom">{{ authStore.user?.nom }}</span>
+        <span class="nav-user-role">{{ authStore.estAdmin ? 'Admin' : 'Accueil' }}</span>
         <button @click="handleLogout">Déconnexion</button>
       </div>
     </nav>
@@ -35,43 +39,75 @@ const handleLogout = () => {
 
 <style scoped>
 .navbar {
-  background: #1e293b;
+  background: var(--brand-dark);
   color: #fff;
-  padding: 1rem 1.5rem;
+  padding: 1rem 1.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 1rem;
+}
+
+.marque {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.marque-nom {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #fff;
+}
+.marque-sous {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  color: #a9c9c0;
+  text-transform: uppercase;
 }
 
 .nav-links {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .nav-links a {
-  color: #cbd5e1;
+  color: #cfe3dc;
   text-decoration: none;
   font-weight: 500;
+  font-size: 0.9rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 2px solid transparent;
 }
 
 .nav-links a.router-link-exact-active {
   color: #fff;
-  border-bottom: 2px solid #2563eb;
+  border-bottom-color: var(--brass);
 }
 
 .nav-user {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   font-size: 0.85rem;
-  color: #cbd5e1;
+  color: #cfe3dc;
+}
+
+.nav-user-nom {
+  font-weight: 600;
+  color: #fff;
+}
+.nav-user-role {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: 0.72rem;
 }
 
 .nav-user button {
   background: transparent;
-  border: 1px solid #475569;
+  border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fff;
   border-radius: 6px;
   padding: 0.35rem 0.7rem;
@@ -80,6 +116,13 @@ const handleLogout = () => {
 }
 
 .nav-user button:hover {
-  background: #334155;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 720px) {
+  .navbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
