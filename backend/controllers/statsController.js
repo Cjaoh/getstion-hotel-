@@ -125,3 +125,44 @@ exports.getEvolutionCA = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// @desc    Répartition des réservations du mois par statut de paiement (Non payé/Partiel/Payé),
+//          avec le solde restant à encaisser par statut (utile pour repérer les impayés à relancer)
+// @route   GET /api/stats/paiements-statut?mois=8&annee=2026
+exports.getRepartitionStatutPaiement = async (req, res) => {
+  try {
+    const now = new Date();
+    const mois = parseInt(req.query.mois) || now.getMonth() + 1;
+    const annee = parseInt(req.query.annee) || now.getFullYear();
+
+    const debutMois = new Date(annee, mois - 1, 1);
+    const finMois = new Date(annee, mois, 0, 23, 59, 59);
+
+    const reservations = await Reservation.find({
+      statutReservation: { $ne: 'annulee' },
+      dateArrivee: { $lte: finMois },
+      dateDepart: { $gte: debutMois },
+    }).select('statutPaiement montantTotal montantPaye');
+
+    const parStatut = {
+      'Non payé': { total: 0, soldeRestant: 0 },
+      Partiel: { total: 0, soldeRestant: 0 },
+      Payé: { total: 0, soldeRestant: 0 },
+      Remboursé: { total: 0, soldeRestant: 0 },
+    };
+
+    reservations.forEach((r) => {
+      const statut = parStatut[r.statutPaiement] ? r.statutPaiement : 'Non payé';
+      parStatut[statut].total += 1;
+      parStatut[statut].soldeRestant += Math.max(0, r.montantTotal - r.montantPaye);
+    });
+
+    const data = Object.entries(parStatut)
+      .filter(([, v]) => v.total > 0)
+      .map(([statut, v]) => ({ statut, ...v }));
+
+    res.status(200).json({ success: true, mois, annee, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

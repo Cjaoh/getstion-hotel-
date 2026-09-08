@@ -71,6 +71,7 @@ export const statsService = {
   getMensuel: (mois, annee) => api.get('/stats/mensuel', { params: { mois, annee } }),
   getRepartitionChambres: () => api.get('/stats/chambres-statut'),
   getEvolutionCA: (mois) => api.get('/stats/ca-evolution', { params: { mois } }),
+  getRepartitionPaiements: (mois, annee) => api.get('/stats/paiements-statut', { params: { mois, annee } }),
 };
 
 export const disponibiliteService = {
