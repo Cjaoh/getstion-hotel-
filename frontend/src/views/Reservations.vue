@@ -12,7 +12,7 @@
     </header>
 
     <!-- ── Formulaire de création ─────────────────────────────── -->
-    <div class="panneau-formulaire" v-if="afficherFormulaire && !resultatCreation">
+    <div class="panneau-formulaire" v-if="afficherFormulaire">
       <form @submit.prevent="soumettre">
         <fieldset class="section">
           <legend>Informations du client</legend>
@@ -102,50 +102,6 @@
         <p v-if="messageSucces" class="message-succes">{{ messageSucces }}</p>
       </form>
     </div>
-
-    <!-- ── Réservation créée : passage au paiement ───────────────── -->
-    <div class="panneau-formulaire panneau-post-creation" v-if="resultatCreation">
-      <div class="post-creation-entete">
-        <span class="post-creation-icone">✓</span>
-        <div>
-          <h2>Réservation enregistrée</h2>
-          <p class="post-creation-sous-titre" v-if="resultatCreation[0]?.enAttenteValidation">
-            En attente de validation (demande spéciale à traiter) — le paiement peut néanmoins être
-            encaissé dès maintenant.
-          </p>
-          <p class="post-creation-sous-titre" v-else>
-            Vous pouvez encaisser un acompte ou le solde total dès maintenant, ou le faire plus tard
-            depuis l'écran Paiements.
-          </p>
-        </div>
-      </div>
-
-      <div class="liste-post-creation">
-        <div v-for="r in resultatCreation" :key="r._id" class="ligne-post-creation">
-          <span>
-            {{ r.client?.nom }} — Chambre {{ r.chambre?.numero }} ({{ r.chambre?.typeLit }})
-          </span>
-          <strong>{{ (r.montantTotal - r.montantPaye).toLocaleString('fr-FR') }} {{ r.devise || 'Ar' }}</strong>
-        </div>
-      </div>
-
-      <div class="actions-formulaire">
-        <button class="btn-principal" type="button" @click="afficherPaiementApresCreation = true">
-          Encaisser maintenant
-        </button>
-        <button class="btn-discret" type="button" @click="terminerSansEncaisser">
-          Terminer sans encaisser
-        </button>
-      </div>
-    </div>
-
-    <PaiementSecurise
-      v-if="afficherPaiementApresCreation"
-      :lignes="lignesPaiementCreation"
-      titre="Encaisser cette réservation"
-      @fermer="afficherPaiementApresCreation = false"
-      @succes="surPaiementApresCreation"
-    />
 
     <!-- ── Groupes en attente de validation ───────────────────── -->
     <div class="panneau-attente" v-if="groupesEnAttente.length">
@@ -540,8 +496,16 @@ async function annuler(reservation) {
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
+
 .page-reservations {
-  font-family: var(--font-sans);
+  --ink: #1c1b1a;
+  --paper: #f7f4ef;
+  --brand: #0f5c4e;
+  --brand-dark: #0a4238;
+  --brass: #a9762f;
+  --ligne: #e4e0d6;
+  font-family: 'Inter', sans-serif;
   color: var(--ink);
 }
 

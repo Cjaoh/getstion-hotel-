@@ -2,7 +2,7 @@
   <div>
     <nav v-if="authStore.isAuthenticated" class="navbar">
       <div class="marque">
-        <span class="marque-nom marque-logo">Tsara Trace</span>
+        <span class="marque-nom">Tsara Trace</span>
         <span class="marque-sous">Gestion hôtelière</span>
       </div>
       <div class="nav-links">

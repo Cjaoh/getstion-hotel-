@@ -53,7 +53,7 @@ exports.getPaiements = async (req, res) => {
 // @desc    Créer un paiement — montant par défaut = SOLDE RESTANT (montantTotal - montantPaye déjà versé)
 // @route   POST /api/paiements
 exports.createPaiement = async (req, res) => {
-  const { reservation: reservationId, modePaiement, statut, montant, encaissePar, carteMasquee } = req.body;
+  const { reservation: reservationId, modePaiement, statut, montant, encaissePar } = req.body;
 
   const session = await mongoose.startSession();
   let paiementCree;
@@ -100,7 +100,6 @@ exports.createPaiement = async (req, res) => {
             reservation: reservationId,
             montant: montantPaiement,
             modePaiement: modePaiement || 'Espèces',
-            carteMasquee: modePaiement === 'Carte' ? (carteMasquee || null) : null,
             statut: statutPaiement,
             encaissePar: encaissePar || req.user?._id,
             datePaiement: statutPaiement === 'Payé' ? new Date() : undefined,
