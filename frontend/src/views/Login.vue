@@ -2,7 +2,7 @@
   <div class="ecran-login">
     <aside class="panneau-marque">
       <div class="panneau-marque-contenu">
-        <p class="marque-nom">Tsara Trace</p>
+        <p class="marque-nom marque-logo">Tsara Trace</p>
         <h1>Gestion hôtelière</h1>
         <p class="marque-baseline">
           Chambres, réservations, paiements et disponibilité — au même endroit,

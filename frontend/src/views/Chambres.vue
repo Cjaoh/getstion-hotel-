@@ -346,16 +346,8 @@ async function supprimer(id) {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600;700&display=swap');
-
 .page-chambres {
-  --ink: #1c1b1a;
-  --paper: #f7f4ef;
-  --brand: #0f5c4e;
-  --brand-dark: #0a4238;
-  --brass: #a9762f;
-  --ligne: #e4e0d6;
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-sans);
   color: var(--ink);
 }
 
