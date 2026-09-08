@@ -1,16 +1,19 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --ink: #1c1b1a;
-  --paper: #f7f4ef;
-  --brand: #0f5c4e;
-  --brand-dark: #0a4238;
-  --brand-light: #e4f0ec;
-  --brass: #a9762f;
-  --ligne: #e4e0d6;
-  --danger: #b5502f;
-  --danger-bg: #fbeae2;
-  --muted: #6b6656;
+  --ink: #1e1f19;
+  --paper: #f6f4ee;
+  --brand: #262b22;
+  --brand-dark: #14170f;
+  --brand-light: #e9ece4;
+  --brass: #b8923f;
+  --brass-dark: #8f701f;
+  --brass-light: #e8d9b5;
+  --ligne: #e3ded1;
+  --danger: #a23b2e;
+  --danger-bg: #f8e6e0;
+  --muted: #6f6a5c;
+  --surface: #ffffff;
   --font-serif: 'Fraunces', serif;
   --font-sans: 'Inter', system-ui, sans-serif;
 }
@@ -33,9 +36,35 @@ body {
   padding: 1.5rem;
 }
 
+/* ── Marque : logo en fanion (inspiré de la charte fournie) ── */
+.marque-logo {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.marque-logo::before,
+.marque-logo::after {
+  content: '';
+  width: 1px;
+  height: 0.9em;
+  background: currentColor;
+  opacity: 0.55;
+}
+
+.marque-logo::before {
+  margin-right: 0.4em;
+}
+
+.marque-logo::after {
+  margin-left: 0.4em;
+}
+
 /* ── Cartes ──────────────────────────────────────────────── */
 .card {
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--ligne);
   border-radius: 12px;
   box-shadow: none;
@@ -45,7 +74,7 @@ body {
 /* ── Boutons ─────────────────────────────────────────────── */
 .btn {
   border: 1px solid var(--ligne);
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
   border-radius: 8px;
   padding: 0.55rem 1.1rem;
@@ -57,7 +86,7 @@ body {
 }
 
 .btn:hover {
-  background: #f2f0ea;
+  background: var(--brand-light);
 }
 
 .btn-primary,
@@ -85,7 +114,17 @@ body {
 }
 
 .btn-danger:hover {
-  background: #96401f;
+  background: #7f2f24;
+}
+
+.btn-or {
+  background: var(--brass);
+  color: #fff;
+  border: none;
+}
+
+.btn-or:hover {
+  background: var(--brass-dark);
 }
 
 /* ── Titres ──────────────────────────────────────────────── */
@@ -132,7 +171,7 @@ textarea {
   border-radius: 7px;
   padding: 0.55rem 0.7rem;
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--surface);
   color: var(--ink);
 }
 
@@ -153,20 +192,20 @@ textarea:focus {
 
 .badge-disponible {
   background: var(--brand-light);
-  color: #157a4f;
+  color: #2f3a29;
 }
 
 .badge-occupee {
   background: var(--danger-bg);
-  color: #a04324;
+  color: #8a3527;
 }
 
 .badge-nettoyage {
-  background: #fdf3d9;
-  color: #8a6a08;
+  background: #f7ecd4;
+  color: #7c5c14;
 }
 
 .badge-horsservice {
-  background: #eeece5;
-  color: #6b6656;
+  background: #ece9e0;
+  color: #6f6a5c;
 }
